@@ -1,6 +1,4 @@
-import typing as ty
-
-from fileformats.core import mtime_cached_property, validated_property
+from fileformats.core import validated_property
 from fileformats.core.exceptions import FormatMismatchError
 from fileformats.generic import Directory, UnicodeFile, BinaryFile
 from fileformats.application import Json, Xml
@@ -23,47 +21,28 @@ class T2k(BinaryFile, MedicalImagingData):
 
 
 class DexiDataDir(Directory, MedicalImagingData):
-    """Canfield Dexi image data directory
-
-    Canfield encrypted proprietary image file format.
-    """
-
-    @mtime_cached_property
-    def result_dict(self) -> dict[ty.Any, ty.Any]:
-        """The results file in the directory."""
-        return self.result_file.load()  # type: ignore[no-any-return]
+    """Canfield Dexi image data directory"""
 
     @validated_property  # validated_property is checked at initialization time, so if this file is missing the format will not match
     def result_file(self) -> Json:
         """The results file in the directory."""
         return Json(self.fspath / "result.json")
 
-    # Alternatively to the implementation below, we could just find and return
-    # the files from their extensions in the directory. If there is a case
-    # where there might be different output files we could just collapse
-    # these properties into
-    # a single validated property called 'output_files' or something
-
     @validated_property
-    def heatmap_file(self) -> Jpeg:
+    def heatmap_file(self) -> list[Jpeg]:
         """The heatmap file in the directory."""
-        return Jpeg(
-            self.fspath / self.result_dict["OutputFiles"]["HeatMap"]
-        )  # FIXME: I don't have the exact path for this
+        return [Jpeg(self.fspath / f) for f in self.fspath.glob("heatmap-*.jpg")]
 
     @validated_property
-    def lesion_file(self) -> Svg___Xml:
+    def lesion_file(self) -> list[Svg___Xml]:
         """The lesion file in the directory."""
-        return Svg___Xml(
-            self.fspath / self.result_dict["OutputFiles"]["Lesion"]
-        )  # FIXME: I don't have the exact path for this
+        return [
+            Svg___Xml(self.fspath / f) for f in self.fspath.glob("lesion_svg-*.svg")
+        ]
 
 
 class DanaosDir(Directory, MedicalImagingData):
-    """Canfield Danaos image data directory
-
-    Canfield encrypted proprietary image file format.
-    """
+    """Canfield Danaos image data directory"""
 
     @validated_property
     def data_file(self) -> Xml:
@@ -92,20 +71,12 @@ class DanaosDir(Directory, MedicalImagingData):
 
 
 class LesionAnalysisDir(Directory, MedicalImagingData):
-    """Canfield Vectra lesion capture and analysis
-
-    Canfield encrypted proprietary image file format.
-    """
+    """Canfield Vectra lesion capture and analysis"""
 
     @validated_property
     def captureinfo_file(self) -> UnicodeFile:
         """The capture info file in the directory."""
         return UnicodeFile(self.fspath / "captureinfo_scope")
-
-    @validated_property
-    def danaos_dir(self) -> DanaosDir:
-        """The danaos directory in the directory."""
-        return DanaosDir(self.fspath / "DANAOS")
 
     @validated_property
     def dexi_dirs(self) -> dict[str, DexiDataDir]:
@@ -120,3 +91,9 @@ class LesionAnalysisDir(Directory, MedicalImagingData):
                 f"Did not find any DexiData sub-directories within the Vectra directory path {self.fspath}"
             )
         return dct
+
+    @property
+    def danaos_dir(self) -> DanaosDir | None:
+        """The danaos directory in the directory."""
+        path = self.fspath / "DANAOS"
+        return DanaosDir(path) if path.exists() else None
