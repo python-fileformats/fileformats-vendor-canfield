@@ -1,10 +1,10 @@
 import typing as ty
 
-from fileformats.core import mtime_cached_property, validated_property
-from fileformats.core.exceptions import FormatMismatchError
-from fileformats.generic import Directory, UnicodeFile, BinaryFile
 from fileformats.application import Json, Xml
-from fileformats.image import Jpeg, Svg___Xml, Png
+from fileformats.core import from_mime, mtime_cached_property, validated_property
+from fileformats.core.exceptions import FormatMismatchError
+from fileformats.generic import BinaryFile, Directory, FileSet, UnicodeFile
+from fileformats.image import Png
 from fileformats.medimage import MedicalImagingData
 
 
@@ -45,18 +45,25 @@ class DexiDataDir(Directory, MedicalImagingData):
     # a single validated property called 'output_files' or something
 
     @validated_property
-    def heatmap_file(self) -> Jpeg:
-        """The heatmap file in the directory."""
-        return Jpeg(
-            self.fspath / self.result_dict["OutputFiles"]["HeatMap"]
-        )  # FIXME: I don't have the exact path for this
-
-    @validated_property
-    def lesion_file(self) -> Svg___Xml:
-        """The lesion file in the directory."""
-        return Svg___Xml(
-            self.fspath / self.result_dict["OutputFiles"]["Lesion"]
-        )  # FIXME: I don't have the exact path for this
+    def output_images(self) -> dict[str, dict[str, FileSet]]:
+        output_images: dict[str, dict[str, FileSet]] = {}
+        for alg in self.result_dict["Algorithms"]:
+            alg_out = output_images[alg["AlgorithmName"]] = {}
+            for img in alg["OutputImages"]:
+                mime_type = img["ContentType"]
+                if mime_type == "jpg":
+                    mime_type = "image/jpeg"
+                elif mime_type in ["svg", "image/svg"]:
+                    mime_type = "image/svg+xml"
+                elif "/" not in mime_type:
+                    mime_type = f"image/{mime_type}"
+                datatype: type[FileSet] = from_mime(mime_type)  # type: ignore[assignment]
+                alg_out[img["Name"]] = datatype(self.fspath / img["ImageLocation"])
+        if not output_images:
+            raise FormatMismatchError(
+                f"No output images found in analysis dir results.json:\n{self.result_dict}"
+            )
+        return output_images
 
 
 class DanaosDir(Directory, MedicalImagingData):
@@ -102,10 +109,11 @@ class LesionAnalysisDir(Directory, MedicalImagingData):
         """The capture info file in the directory."""
         return UnicodeFile(self.fspath / "captureinfo_scope")
 
-    @validated_property
-    def danaos_dir(self) -> DanaosDir:
+    @property
+    def danaos_dir(self) -> DanaosDir | None:
         """The danaos directory in the directory."""
-        return DanaosDir(self.fspath / "DANAOS")
+        dd_path = self.fspath / "DANAOS"
+        return DanaosDir(dd_path) if dd_path.exists() else None
 
     @validated_property
     def dexi_dirs(self) -> dict[str, DexiDataDir]:

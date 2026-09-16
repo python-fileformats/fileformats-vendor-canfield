@@ -2,7 +2,7 @@ from fileformats.application import Json
 from fileformats.core import validated_property
 from fileformats.core.exceptions import FormatMismatchError
 from fileformats.generic import BinaryFile, Directory, File, UnicodeFile
-from fileformats.image import Cr2, Png
+from fileformats.image import Cr2
 from fileformats.medimage import MedicalImagingData
 
 
@@ -188,8 +188,8 @@ class WholeBodyCapture(Directory, MedicalImagingData):
         return File(self.fspath / "flashstatus")
 
     @validated_property
-    def preview_file(self) -> Png:
-        return Png(self.fspath / "1C.png")
+    def preview_file(self) -> File:
+        return File(self.fspath / "1C.png")
 
     @validated_property
     def calib_dir(self) -> CalibDir:
@@ -199,7 +199,8 @@ class WholeBodyCapture(Directory, MedicalImagingData):
     def analysis_dir(self) -> WholeBodyAnalysisDir:
         return WholeBodyAnalysisDir(self.fspath / "analysis")
 
-    @validated_property
+    # @validated_property
+    @property
     def tracked_dirs(self) -> dict[str, TrackedDir]:
         """Tracking sub-directories, keyed by capture GUID."""
         dct = {
