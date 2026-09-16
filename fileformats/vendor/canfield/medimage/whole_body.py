@@ -200,6 +200,11 @@ class WholeBodyCapture(Directory, MedicalImagingData):
         return WholeBodyAnalysisDir(self.fspath / "analysis")
 
     @property
+    def sglue_log_file(self) -> UnicodeFile | None:
+        path = self.fspath / "sglue-log.txt"
+        return UnicodeFile(path) if path.exists() else None
+
+    @property
     def tracked_dirs(self) -> dict[str, TrackedDir]:
         """Tracking sub-directories, keyed by capture GUID."""
         dct = {

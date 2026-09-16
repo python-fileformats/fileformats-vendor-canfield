@@ -80,7 +80,8 @@ def vectra_3d_capture_deidentify(
     if not in_place:
         capture_dir = capture_dir.copy(dest_dir=Path(out_dir))
 
-    sglue_log_deidentify(capture_dir.sglue_log_file)
+    if capture_dir.sglue_log_file:
+        sglue_log_deidentify(capture_dir.sglue_log_file)
 
     for tracked_dir in capture_dir.tracked_dirs.values():
         tracked_dir.deidentify(in_place=True, spec=spec, **kwargs)
