@@ -23,10 +23,7 @@ class T2k(BinaryFile, MedicalImagingData):
 
 
 class DexiDataDir(Directory, MedicalImagingData):
-    """Canfield Dexi image data directory
-
-    Canfield encrypted proprietary image file format.
-    """
+    """Canfield Dexi image data directory"""
 
     @mtime_cached_property
     def result_dict(self) -> dict[ty.Any, ty.Any]:
@@ -37,12 +34,6 @@ class DexiDataDir(Directory, MedicalImagingData):
     def result_file(self) -> Json:
         """The results file in the directory."""
         return Json(self.fspath / "result.json")
-
-    # Alternatively to the implementation below, we could just find and return
-    # the files from their extensions in the directory. If there is a case
-    # where there might be different output files we could just collapse
-    # these properties into
-    # a single validated property called 'output_files' or something
 
     @validated_property
     def output_images(self) -> dict[str, dict[str, FileSet]]:
@@ -67,10 +58,7 @@ class DexiDataDir(Directory, MedicalImagingData):
 
 
 class DanaosDir(Directory, MedicalImagingData):
-    """Canfield Danaos image data directory
-
-    Canfield encrypted proprietary image file format.
-    """
+    """Canfield Danaos image data directory"""
 
     @validated_property
     def data_file(self) -> Xml:
@@ -99,27 +87,18 @@ class DanaosDir(Directory, MedicalImagingData):
 
 
 class LesionAnalysisDir(Directory, MedicalImagingData):
-    """Canfield Vectra lesion capture and analysis
-
-    Canfield encrypted proprietary image file format.
-    """
+    """Canfield Vectra lesion capture and analysis"""
 
     @validated_property
     def captureinfo_file(self) -> UnicodeFile:
         """The capture info file in the directory."""
         return UnicodeFile(self.fspath / "captureinfo_scope")
 
-    @property
-    def danaos_dir(self) -> DanaosDir | None:
-        """The danaos directory in the directory."""
-        dd_path = self.fspath / "DANAOS"
-        return DanaosDir(dd_path) if dd_path.exists() else None
-
     @validated_property
     def dexi_dirs(self) -> dict[str, DexiDataDir]:
         """Dictionary of dexi directories sorted by their version."""
         dct = {
-            p.name.split("_")[1]: DexiDataDir(p)
+            (p.name.partition("_")[2] or "1.0"): DexiDataDir(p)
             for p in self.fspath.glob("DexiData*")
             if p.is_dir()
         }
@@ -128,3 +107,9 @@ class LesionAnalysisDir(Directory, MedicalImagingData):
                 f"Did not find any DexiData sub-directories within the Vectra directory path {self.fspath}"
             )
         return dct
+
+    @property
+    def danaos_dir(self) -> DanaosDir | None:
+        """The danaos directory in the directory."""
+        path = self.fspath / "DANAOS"
+        return DanaosDir(path) if path.exists() else None

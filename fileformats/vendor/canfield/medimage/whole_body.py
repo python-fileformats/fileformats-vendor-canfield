@@ -199,7 +199,11 @@ class WholeBodyCapture(Directory, MedicalImagingData):
     def analysis_dir(self) -> WholeBodyAnalysisDir:
         return WholeBodyAnalysisDir(self.fspath / "analysis")
 
-    # @validated_property
+    @property
+    def sglue_log_file(self) -> UnicodeFile | None:
+        path = self.fspath / "sglue-log.txt"
+        return UnicodeFile(path) if path.exists() else None
+
     @property
     def tracked_dirs(self) -> dict[str, TrackedDir]:
         """Tracking sub-directories, keyed by capture GUID."""
@@ -208,10 +212,6 @@ class WholeBodyCapture(Directory, MedicalImagingData):
             for p in self.fspath.glob("Tracked_*")
             if p.is_dir()
         }
-        if not dct:
-            raise FormatMismatchError(
-                f"Did not find any Tracked_* sub-directories within {self.fspath}"
-            )
         return dct
 
     @property
@@ -230,7 +230,3 @@ class WholeBodyCapture(Directory, MedicalImagingData):
         reconstruction (per-pod stereo logs, calibration tweaks, mesh
         gluing/texturing, etc.)."""
         return [UnicodeFile(p) for p in self.fspath.glob("*log*.txt")]
-
-    @validated_property
-    def sglue_log_file(self) -> UnicodeFile:
-        return UnicodeFile(self.fspath / "sglue-log.txt")
