@@ -44,24 +44,26 @@ class DexiDataDir(Directory, MedicalImagingData):
     # these properties into
     # a single validated property called 'output_files' or something
 
-@validated_property
-def output_images(self) -> dict[str, dict[FileSet]]:
-    output_images = {}
-    for alg in self.result_dict["Algorithms"]:
-        alg_out = output_images[alg["AlgorithmName"]] = {}
-        for img in alg["OutputImages"]:
-            mime_type = img["ContentType"]
-            if "mime_type" == "jpg":
-                mime_type = "image/jpeg"
-            elif "/" not in mime_type:
-                mime_type = f"image/{mime_type}"
-            datatype = from_mime(mime_type)
-            alg_out[img["Name"]] = datatype(img["ImageLocation"])
-    if not output_images:
-        raise FormatMismatchError(
-            f"No output images found in analysis dir results.json:\n{self.results_dict}"
-        )
-    return output_images
+    @validated_property
+    def output_images(self) -> dict[str, dict[FileSet]]:
+        output_images = {}
+        for alg in self.result_dict["Algorithms"]:
+            alg_out = output_images[alg["AlgorithmName"]] = {}
+            for img in alg["OutputImages"]:
+                mime_type = img["ContentType"]
+                if mime_type == "jpg":
+                    mime_type = "image/jpeg"
+                elif mime_type in ["svg", "image/svg"]:
+                    mime_type = "image/svg+xml"
+                elif "/" not in mime_type:
+                    mime_type = f"image/{mime_type}"
+                datatype = from_mime(mime_type)
+                alg_out[img["Name"]] = datatype(self.fspath / img["ImageLocation"])
+        if not output_images:
+            raise FormatMismatchError(
+                f"No output images found in analysis dir results.json:\n{self.results_dict}"
+            )
+        return output_images
 
 class DanaosDir(Directory, MedicalImagingData):
     """Canfield Danaos image data directory
@@ -107,9 +109,10 @@ class LesionAnalysisDir(Directory, MedicalImagingData):
         return UnicodeFile(self.fspath / "captureinfo_scope")
 
     @property
-    def danaos_dir(self) -> DanaosDir:
+    def danaos_dir(self) -> DanaosDir | None:
         """The danaos directory in the directory."""
-        return DanaosDir(self.fspath / "DANAOS")
+        dd_path = self.fspath / "DANAOS"
+        return DanaosDir(dd_path) if dd_path.exists() else None
 
     @validated_property
     def dexi_dirs(self) -> dict[str, DexiDataDir]:
