@@ -1,10 +1,10 @@
 import typing as ty
 
+from fileformats.application import Json, Xml
 from fileformats.core import from_mime, mtime_cached_property, validated_property
 from fileformats.core.exceptions import FormatMismatchError
-from fileformats.generic import Directory, UnicodeFile, BinaryFile, FileSet
-from fileformats.application import Json, Xml
-from fileformats.image import Jpeg, Svg___Xml, Png
+from fileformats.generic import BinaryFile, Directory, FileSet, UnicodeFile
+from fileformats.image import Png
 from fileformats.medimage import MedicalImagingData
 
 
@@ -45,8 +45,8 @@ class DexiDataDir(Directory, MedicalImagingData):
     # a single validated property called 'output_files' or something
 
     @validated_property
-    def output_images(self) -> dict[str, dict[FileSet]]:
-        output_images = {}
+    def output_images(self) -> dict[str, dict[str, FileSet]]:
+        output_images: dict[str, dict[str, FileSet]] = {}
         for alg in self.result_dict["Algorithms"]:
             alg_out = output_images[alg["AlgorithmName"]] = {}
             for img in alg["OutputImages"]:
@@ -57,13 +57,14 @@ class DexiDataDir(Directory, MedicalImagingData):
                     mime_type = "image/svg+xml"
                 elif "/" not in mime_type:
                     mime_type = f"image/{mime_type}"
-                datatype = from_mime(mime_type)
+                datatype: type[FileSet] = from_mime(mime_type)  # type: ignore[assignment]
                 alg_out[img["Name"]] = datatype(self.fspath / img["ImageLocation"])
         if not output_images:
             raise FormatMismatchError(
-                f"No output images found in analysis dir results.json:\n{self.results_dict}"
+                f"No output images found in analysis dir results.json:\n{self.result_dict}"
             )
         return output_images
+
 
 class DanaosDir(Directory, MedicalImagingData):
     """Canfield Danaos image data directory
