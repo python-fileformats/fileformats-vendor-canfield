@@ -199,10 +199,6 @@ class WholeBodyCapture(Directory, MedicalImagingData):
     def analysis_dir(self) -> WholeBodyAnalysisDir:
         return WholeBodyAnalysisDir(self.fspath / "analysis")
 
-    @validated_property
-    def sglue_log_file(self) -> UnicodeFile:
-        return UnicodeFile(self.fspath / "sglue-log.txt")
-
     @property
     def tracked_dirs(self) -> dict[str, TrackedDir]:
         """Tracking sub-directories, keyed by capture GUID."""

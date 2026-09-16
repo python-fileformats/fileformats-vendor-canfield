@@ -1,8 +1,10 @@
-from fileformats.core import validated_property
-from fileformats.core.exceptions import FormatMismatchError
-from fileformats.generic import Directory, UnicodeFile, BinaryFile
+import typing as ty
+
 from fileformats.application import Json, Xml
-from fileformats.image import Jpeg, Svg___Xml, Png
+from fileformats.core import from_mime, mtime_cached_property, validated_property
+from fileformats.core.exceptions import FormatMismatchError
+from fileformats.generic import BinaryFile, Directory, FileSet, UnicodeFile
+from fileformats.image import Png
 from fileformats.medimage import MedicalImagingData
 
 
@@ -23,22 +25,36 @@ class T2k(BinaryFile, MedicalImagingData):
 class DexiDataDir(Directory, MedicalImagingData):
     """Canfield Dexi image data directory"""
 
+    @mtime_cached_property
+    def result_dict(self) -> dict[ty.Any, ty.Any]:
+        """The results file in the directory."""
+        return self.result_file.load()  # type: ignore[no-any-return]
+
     @validated_property  # validated_property is checked at initialization time, so if this file is missing the format will not match
     def result_file(self) -> Json:
         """The results file in the directory."""
         return Json(self.fspath / "result.json")
 
     @validated_property
-    def heatmap_file(self) -> list[Jpeg]:
-        """The heatmap file in the directory."""
-        return [Jpeg(self.fspath / f) for f in self.fspath.glob("heatmap-*.jpg")]
-
-    @validated_property
-    def lesion_file(self) -> list[Svg___Xml]:
-        """The lesion file in the directory."""
-        return [
-            Svg___Xml(self.fspath / f) for f in self.fspath.glob("lesion_svg-*.svg")
-        ]
+    def output_images(self) -> dict[str, dict[str, FileSet]]:
+        output_images: dict[str, dict[str, FileSet]] = {}
+        for alg in self.result_dict["Algorithms"]:
+            alg_out = output_images[alg["AlgorithmName"]] = {}
+            for img in alg["OutputImages"]:
+                mime_type = img["ContentType"]
+                if mime_type == "jpg":
+                    mime_type = "image/jpeg"
+                elif mime_type in ["svg", "image/svg"]:
+                    mime_type = "image/svg+xml"
+                elif "/" not in mime_type:
+                    mime_type = f"image/{mime_type}"
+                datatype: type[FileSet] = from_mime(mime_type)  # type: ignore[assignment]
+                alg_out[img["Name"]] = datatype(self.fspath / img["ImageLocation"])
+        if not output_images:
+            raise FormatMismatchError(
+                f"No output images found in analysis dir results.json:\n{self.result_dict}"
+            )
+        return output_images
 
 
 class DanaosDir(Directory, MedicalImagingData):
