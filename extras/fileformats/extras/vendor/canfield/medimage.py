@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 def vectra_deidentify(
     export_dir: VectraExport,
     out_dir: os.PathLike[str],
-    spec: ty.Any = None,
+    recipe: None = None,
     in_place: bool = False,
     **kwargs: ty.Any,
 ) -> VectraExport:
@@ -43,11 +43,8 @@ def vectra_deidentify(
         The directory containing the Canfield data export directory to be deidentified.
     out_dir: PathLike
         The directory where the deidentified files should be written.
-    spec: Any, optional
-        A specification for the deidentification process, which may include details on
-        which fields to remove or how to handle certain types of data. The exact
-        structure of this specification will depend on the specific image format and the
-        type of identifying information that is present.
+    recipe: None
+        Canfield exports don't take a deidentification recipe
 
     Returns
     -------
@@ -58,10 +55,10 @@ def vectra_deidentify(
         export_dir = export_dir.copy(dest_dir=Path(out_dir))
 
     for whole_body_capture_dir in export_dir.whole_body_capture_dirs.values():
-        whole_body_capture_dir.deidentify(in_place=True, spec=spec, **kwargs)
+        whole_body_capture_dir.deidentify(out_dir, in_place=True, **kwargs)
 
     for lesion_analysis_dir in export_dir.lesion_analysis_dirs.values():
-        lesion_analysis_dir.deidentify(in_place=True, spec=spec, **kwargs)
+        lesion_analysis_dir.deidentify(out_dir, in_place=True, **kwargs)
 
     for report in export_dir.dermx_reports:
         pdf_report_deidentify(report)
@@ -73,7 +70,7 @@ def vectra_deidentify(
 def vectra_3d_capture_deidentify(
     capture_dir: WholeBodyCapture,
     out_dir: os.PathLike[str],
-    spec: ty.Any = None,
+    recipe: None = None,
     in_place: bool = False,
     **kwargs: ty.Any,
 ) -> WholeBodyCapture:
@@ -84,7 +81,7 @@ def vectra_3d_capture_deidentify(
         sglue_log_deidentify(capture_dir.sglue_log_file)
 
     for tracked_dir in capture_dir.tracked_dirs.values():
-        tracked_dir.deidentify(in_place=True, spec=spec, **kwargs)
+        tracked_dir.deidentify(out_dir, in_place=True, **kwargs)
 
     return capture_dir
 
@@ -93,15 +90,15 @@ def vectra_3d_capture_deidentify(
 def tracked_dir_deidentify(
     tracked_dir: TrackedDir,
     out_dir: os.PathLike[str],
-    spec: ty.Any = None,
+    recipe: None = None,
     in_place: bool = False,
     **kwargs: ty.Any,
 ) -> TrackedDir:
     if not in_place:
         tracked_dir = tracked_dir.copy(dest_dir=Path(out_dir))
 
-    tracked_dir.seed_log_file.deidentify(in_place=True, spec=spec, **kwargs)
-    tracked_dir.track_log_file.deidentify(in_place=True, spec=spec, **kwargs)
+    tracked_dir.seed_log_file.deidentify(out_dir, in_place=True, **kwargs)
+    tracked_dir.track_log_file.deidentify(out_dir, in_place=True, **kwargs)
     tracking_log_deidentify(tracked_dir.tracking_log_file)
 
     return tracked_dir
@@ -111,7 +108,7 @@ def tracked_dir_deidentify(
 def lesion_analysis_deidentify(
     lesion_dir: LesionAnalysisDir,
     out_dir: os.PathLike[str],
-    spec: ty.Any = None,
+    recipe: None = None,
     in_place: bool = False,
     **kwargs: ty.Any,
 ) -> LesionAnalysisDir:
@@ -119,7 +116,7 @@ def lesion_analysis_deidentify(
         lesion_dir = lesion_dir.copy(dest_dir=Path(out_dir))
 
     for dexi_dir in lesion_dir.dexi_dirs.values():
-        dexi_dir.deidentify(in_place=True, spec=spec, **kwargs)
+        dexi_dir.deidentify(out_dir, in_place=True, **kwargs)
 
     return lesion_dir
 
@@ -128,7 +125,7 @@ def lesion_analysis_deidentify(
 def dexi_data_dir_deidentify(
     dexi_data_dir: DexiDataDir,
     out_dir: os.PathLike[str],
-    spec: ty.Any = None,
+    recipe: None = None,
     in_place: bool = False,
     **kwargs: ty.Any,
 ) -> DexiDataDir:
@@ -262,7 +259,7 @@ def sglue_log_deidentify(log_file: UnicodeFile) -> UnicodeFile:
 def tom_seed_log_deidentify(
     tom_seed_log: TomSeedLog,
     out_dir: os.PathLike[str],
-    spec: ty.Any = None,
+    recipe: None = None,
     in_place: bool = False,
     **kwargs: ty.Any,
 ) -> TomSeedLog:
@@ -286,7 +283,7 @@ def tom_seed_log_deidentify(
 def tom_track_log_deidentify(
     tom_track_log: TomTrackLog,
     out_dir: os.PathLike[str],
-    spec: ty.Any = None,
+    recipe: None = None,
     in_place: bool = False,
     **kwargs: ty.Any,
 ) -> TomTrackLog:
