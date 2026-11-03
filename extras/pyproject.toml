@@ -7,7 +7,7 @@ name = "fileformats-vendor-canfield-extras"
 description = "Extra methods for accessing and manipulating the underlying data referenced by fileformats-vendor-canfield classes"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["fileformats-vendor-canfield >= 0.3.2", "pydra >= 1.0a12"]
+dependencies = ["fileformats-vendor-canfield", "pydra >= 1.0a12"]
 license = { file = "LICENSE" }
 authors = [{ name = "André Venne", email = "vennand@gmail.com" }]
 maintainers = [{ name = "André Venne", email = "vennand@gmail.com" }]
