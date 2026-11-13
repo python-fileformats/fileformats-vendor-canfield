@@ -7,7 +7,7 @@ First run a group command to extract the required directories from the vectra ex
 same lesion dermoscopy
 
 ```bash
-xnat-ingest group <input-dir> <grouped-dir> \
+accessionflow group <input-dir> <grouped-dir> \
   --recursive \
   --datatype image/png \
   --datatype image/jpeg \
@@ -31,7 +31,7 @@ xnat-ingest group <input-dir> <grouped-dir> \
 Next assign the session to a project/subject/session
 
 ```bash
-xnat-ingest assign <grouped-dir> <assigned-dir> \
+accessionflow assign <grouped-dir> <assigned-dir> \
   --subject SubjectID \
   --session '{SubjectID}_{CaptureDate:%Y%m%d}' \
   --constant-project-id ACEMID
@@ -40,102 +40,102 @@ xnat-ingest assign <grouped-dir> <assigned-dir> \
 then run deidentification (not sure if this is necessary, maybe the parts we are uploading don't need it)
 
 ```bash
-xnat-ingest deidentify <assigned-dir> <deid-dir> <spec-dir> --reid-dir <reid-dir>
+accessionflow deidentify <assigned-dir> <deid-dir> <spec-dir> --reid-dir <reid-dir>
 ```
 
 finally upload to XNAT
 
 ```bash
-xnat-ingest upload <deid-dir> <xnat-server-url> \
+accessionflow upload <deid-dir> <xnat-server-url> \
   --user <xnat-user> \
   --password <xnat-password>
 ```
 
 ### K8s spec
 
-One container per stage (each an ``xnat-ingest`` sub-command). Every positional arg
-and option has an env var, so ``command`` is always ``["xnat-ingest"]`` and ``args``
+One container per stage (each an ``accessionflow`` sub-command). Every positional arg
+and option has an env var, so ``command`` is always ``["accessionflow"]`` and ``args``
 is just the sub-command name.
 
 ```yaml
 # ---- stage 1: group -------------------------------------------------------------
-command: ["xnat-ingest"]
+command: ["accessionflow"]
 args: ["group"]
 env:
-  - name: XINGEST_INPUT_PATHS
+  - name: ACFLOW_INPUT_PATHS
     value: "<input-dir>"
-  - name: XINGEST_OUTPUT_DIR
+  - name: ACFLOW_OUTPUT_DIR
     value: "<grouped-dir>"
-  - name: XINGEST_RECURSIVE
+  - name: ACFLOW_RECURSIVE
     value: "true"
-  - name: XINGEST_DATATYPES                 # ';'-separated
+  - name: ACFLOW_DATATYPES                 # ';'-separated
     value: "image/png;image/jpeg;medimage/vnd.canfield.whole-body-analysis-dir;medimage/vnd.canfield.dexi-data-dir"
-  - name: XINGEST_EXCLUDE_PATH              # ';'-separated
+  - name: ACFLOW_EXCLUDE_PATH              # ';'-separated
     value: "*/*/*.png;*/*/*.jpg"
-  - name: XINGEST_ALLOW_UNRECOGNISED
+  - name: ACFLOW_ALLOW_UNRECOGNISED
     value: ".*"
-  - name: XINGEST_SESSION
+  - name: ACFLOW_SESSION
     value: '{subject_uid}_{CaptureDate:%Y%m%d} all'
-  - name: XINGEST_SCAN                      # ';' between entries, space between the 2 fields
+  - name: ACFLOW_SCAN                      # ';' between entries, space between the 2 fields
     value: 'dermoscopy-{LesionID} image/png|image/jpeg;dexi-{CaptureTime} medimage/vnd.canfield.dexi-data-dir;analysis-{CaptureTime} medimage/vnd.canfield.whole-body-analysis-dir'
-  - name: XINGEST_RESOURCE
+  - name: ACFLOW_RESOURCE
     value: "CaptureDevice image/png|image/jpeg"
-  - name: XINGEST_ON_RESOURCE_CLASH         # <policy> <scope>
+  - name: ACFLOW_ON_RESOURCE_CLASH         # <policy> <scope>
     value: "merge image/png|image/jpeg"
-  - name: XINGEST_PATH_METADATA_REGEX       # ';' between entries, each '<regex> <datatype>'
+  - name: ACFLOW_PATH_METADATA_REGEX       # ';' between entries, each '<regex> <datatype>'
     value: '.*/(?P<subject_uid>[\w-]+)/(?P<filename>[\w-]+\.(?:png|jpe?g)) image/png|image/jpeg;.*/(?P<subject_uid>[\w-]+)/(?P<CaptureDate>\d{8})(?P<CaptureTime>\d+)/analysis medimage/vnd.canfield.whole-body-analysis-dir;.*/(?P<subject_uid>[\w-]+)/(?P<CaptureDate>\d{8})(?P<CaptureTime>\d+)/DexiData.* medimage/vnd.canfield.dexi-data-dir'
-  - name: XINGEST_METADATA_TABLES           # '<path> <row-freq> <join-exprs>'
+  - name: ACFLOW_METADATA_TABLES           # '<path> <row-freq> <join-exprs>'
     value: '<path-to-csv> fileset[image/png|image/jpeg] ImagePath==HYPERLINK("{subject_uid}/{filename}")'
 
 # ---- stage 2: assign ----------------------------------------------------------
-command: ["xnat-ingest"]
+command: ["accessionflow"]
 args: ["assign"]
 env:
-  - name: XINGEST_INPUT_DIR                 # NB: assign uses XINGEST_INPUT_DIR, not _PATHS
+  - name: ACFLOW_INPUT_DIR                 # NB: assign uses ACFLOW_INPUT_DIR, not _PATHS
     value: "<grouped-dir>"
-  - name: XINGEST_OUTPUT_DIR
+  - name: ACFLOW_OUTPUT_DIR
     value: "<assigned-dir>"
-  - name: XINGEST_CONSTANT_PROJECT_ID
+  - name: ACFLOW_CONSTANT_PROJECT_ID
     value: "ACEMID"
-  - name: XINGEST_SUBJECT
+  - name: ACFLOW_SUBJECT
     value: "SubjectID"
-  - name: XINGEST_SESSION
+  - name: ACFLOW_SESSION
     value: '{SubjectID}_{CaptureDate:%Y%m%d}'
 
 # ---- stage 3: deidentify (skip if the uploaded parts carry no PHI) ------------
-command: ["xnat-ingest"]
+command: ["accessionflow"]
 args: ["deidentify"]
 env:
-  - name: XINGEST_INPUT_DIR
+  - name: ACFLOW_INPUT_DIR
     value: "<assigned-dir>"
-  - name: XINGEST_OUTPUT_DIR
+  - name: ACFLOW_OUTPUT_DIR
     value: "<deid-dir>"
-  - name: XINGEST_SPEC_DIR                  # deidentify needs a spec dir
+  - name: ACFLOW_SPEC_DIR                  # deidentify needs a spec dir
     value: "<spec-dir>"
-  - name: XINGEST_REID_DIR                  # optional: drop this to discard the reid mapping
+  - name: ACFLOW_REID_DIR                  # optional: drop this to discard the reid mapping
     value: "<reid-dir>"
 
 # ---- stage 4: upload --------------------------------------------------------------
-command: ["xnat-ingest"]
+command: ["accessionflow"]
 args: ["upload"]
 env:
-  - name: XINGEST_STAGED
+  - name: ACFLOW_STAGED
     value: "<deid-dir>"                     # or <assigned-dir> if stage 3 is skipped
-  - name: XINGEST_HOST
+  - name: ACFLOW_HOST
     value: "<xnat-server-url>"
-  - name: XINGEST_USER
+  - name: ACFLOW_USER
     valueFrom: { secretKeyRef: { name: xnat-creds, key: user } }
-  - name: XINGEST_PASS
+  - name: ACFLOW_PASS
     valueFrom: { secretKeyRef: { name: xnat-creds, key: password } }
 ```
 
 
 #### Notes
-  - XINGEST_SESSION / XINGEST_SCAN must be quoted: a YAML scalar starting with '{' is
+  - ACFLOW_SESSION / ACFLOW_SCAN must be quoted: a YAML scalar starting with '{' is
     otherwise parsed as a flow mapping.
-  - XINGEST_PATH_METADATA_REGEX: single-quote it so backslashes stay literal
+  - ACFLOW_PATH_METADATA_REGEX: single-quote it so backslashes stay literal
     (a double-quoted YAML scalar would need '\\w', '\\d').
-  - XINGEST_METADATA_TABLES: the '==' is literal. On the CLI the shell concatenates
+  - ACFLOW_METADATA_TABLES: the '==' is literal. On the CLI the shell concatenates
     ImagePath= + '=HYPERLINK(...)'; in an env var there is no shell, so write the
     double '='. The parser splits the join expr on the first '=' (column='ImagePath',
     value='=HYPERLINK("{subject_uid}/{filename}")').
@@ -160,7 +160,7 @@ env:
 ## Whole Body (internal) CLI:
 
 ```bash
-xnat-ingest group \
+accessionflow group \
     <input-dir> \
     <output-dir> \
     --datatype medimage/vnd.canfield.vectra-export \
@@ -172,7 +172,7 @@ xnat-ingest group \
 ```
 
 ```bash
-xnat-ingest assign <grouped-dir> <assigned-dir> \
+accessionflow assign <grouped-dir> <assigned-dir> \
   --subject SubjectID \
   --session session_uid \
   --constant-project-id ACEMID-Internal
@@ -181,13 +181,13 @@ xnat-ingest assign <grouped-dir> <assigned-dir> \
 then run deidentification
 
 ```bash
-xnat-ingest deidentify <assigned-dir> <deid-dir> <spec-dir> --reid-dir <reid-dir>
+accessionflow deidentify <assigned-dir> <deid-dir> <spec-dir> --reid-dir <reid-dir>
 ```
 
 finally upload to XNAT
 
 ```bash
-xnat-ingest upload <deid-dir> <xnat-server-url> \
+accessionflow upload <deid-dir> <xnat-server-url> \
   --user <xnat-user> \
   --password <xnat-password>
 ```
@@ -196,62 +196,62 @@ xnat-ingest upload <deid-dir> <xnat-server-url> \
 
 ```yaml
 # ---- stage 1: group (whole export dir + sidecar .db, zipped for archive) ------
-command: ["xnat-ingest"]
+command: ["accessionflow"]
 args: ["group"]
 env:
-  - name: XINGEST_INPUT_PATHS
+  - name: ACFLOW_INPUT_PATHS
     value: "<input-dir>"
-  - name: XINGEST_OUTPUT_DIR
+  - name: ACFLOW_OUTPUT_DIR
     value: "<grouped-dir>"
-  # no XINGEST_RECURSIVE - the whole export dir is one resource, don't walk in
-  - name: XINGEST_DATATYPES
+  # no ACFLOW_RECURSIVE - the whole export dir is one resource, don't walk in
+  - name: ACFLOW_DATATYPES
     value: "medimage/vnd.canfield.vectra-export;application/vnd.sqlite3"
-  - name: XINGEST_SESSION
+  - name: ACFLOW_SESSION
     value: "session_uid all"
-  - name: XINGEST_PATH_METADATA_REGEX
+  - name: ACFLOW_PATH_METADATA_REGEX
     value: '.*/(?P<session_uid>[\w-]+) medimage/vnd.canfield.vectra-export;.*/(?P<SubjectID>[^/_]+)_(?P<session_uid>[\w-]+) application/vnd.sqlite3'
-  - name: XINGEST_CONVERT                   # <src> <tgt>
+  - name: ACFLOW_CONVERT                   # <src> <tgt>
     value: "medimage/vnd.canfield.vectra-export medimage/vnd.canfield.vectra-export+zip"
 
 # ---- stage 2: assign --------------------------------------------------------------
-command: ["xnat-ingest"]
+command: ["accessionflow"]
 args: ["assign"]
 env:
-  - name: XINGEST_INPUT_DIR
+  - name: ACFLOW_INPUT_DIR
     value: "<grouped-dir>"
-  - name: XINGEST_OUTPUT_DIR
+  - name: ACFLOW_OUTPUT_DIR
     value: "<assigned-dir>"
-  - name: XINGEST_CONSTANT_PROJECT_ID
+  - name: ACFLOW_CONSTANT_PROJECT_ID
     value: "ACEMID-Internal"
-  - name: XINGEST_SUBJECT
+  - name: ACFLOW_SUBJECT
     value: "SubjectID"
-  - name: XINGEST_SESSION
+  - name: ACFLOW_SESSION
     value: "session_uid"
 
 # ---- stage 3: deidentify --------------------------------------------------------
-command: ["xnat-ingest"]
+command: ["accessionflow"]
 args: ["deidentify"]
 env:
-  - name: XINGEST_INPUT_DIR
+  - name: ACFLOW_INPUT_DIR
     value: "<assigned-dir>"
-  - name: XINGEST_OUTPUT_DIR
+  - name: ACFLOW_OUTPUT_DIR
     value: "<deid-dir>"
-  - name: XINGEST_SPEC_DIR
+  - name: ACFLOW_SPEC_DIR
     value: "<spec-dir>"
-  - name: XINGEST_REID_DIR                  # optional: drop this to discard the reid mapping
+  - name: ACFLOW_REID_DIR                  # optional: drop this to discard the reid mapping
     value: "<reid-dir>"
 
 # ---- stage 4: upload -----------------------------------------------------------
-command: ["xnat-ingest"]
+command: ["accessionflow"]
 args: ["upload"]
 env:
-  - name: XINGEST_STAGED
+  - name: ACFLOW_STAGED
     value: "<deid-dir>"
-  - name: XINGEST_HOST
+  - name: ACFLOW_HOST
     value: "<xnat-server-url>"
-  - name: XINGEST_USER
+  - name: ACFLOW_USER
     valueFrom: { secretKeyRef: { name: xnat-internal-creds, key: user } }
-  - name: XINGEST_PASS
+  - name: ACFLOW_PASS
     valueFrom: { secretKeyRef: { name: xnat-internal-creds, key: password } }
 ```
 
@@ -259,8 +259,8 @@ env:
   - Runs on ``main`` as-is (no new flags needed). ``--scan``/``--resource`` are
     omitted: nothing DICOM-scoped matches, so each resource is named after its type
     (``vectra-export`` / ``sqlite3-db``) and the scan takes the same name.
-  - ``deidentify`` needs the extra positional ``spec_dir`` (``XINGEST_SPEC_DIR``);
-    ``--reid-dir`` / ``XINGEST_REID_DIR`` is optional — omit it to discard the
+  - ``deidentify`` needs the extra positional ``spec_dir`` (``ACFLOW_SPEC_DIR``);
+    ``--reid-dir`` / ``ACFLOW_REID_DIR`` is optional — omit it to discard the
     re-identification mapping rather than write it to disk.
   - ``--convert`` needs the ``vectra-export -> …+zip`` converter loaded at runtime
     (from ``fileformats-extras``); confirm the image has it and that the first run
