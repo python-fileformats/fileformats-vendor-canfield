@@ -252,7 +252,7 @@ def tom_seed_log_deidentify(
     if not tom_seed_log.name.endswith("tom-seed.log"):
         raise ValueError(f"Expected 'tom-seed.log', but got '{tom_seed_log.name}'")
     deidentified = tom_seed_log.copy(Path(out_dir), make_dirs=True)
-    log_file_deidentify(deidentified, ("loading", "loaded"))
+    log_file_deidentify(deidentified, ("loading", "loaded","cmd line as invoked","cmd line after", "creating output folder"))
     return deidentified
 
 
@@ -275,7 +275,7 @@ def tom_track_log_deidentify(
     if not tom_track_log.name.endswith("tom-track.log"):
         raise ValueError(f"Expected 'tom-track.log', but got '{tom_track_log.name}'")
     deidentified = tom_track_log.copy(Path(out_dir), make_dirs=True)
-    log_file_deidentify(deidentified, ("no images", "mesh vertex"))
+    log_file_deidentify(deidentified, ("no images", "mesh vertex", "cmd line as invoked","cmd line after","ref frame","using landmarks","dropping some"))
     return deidentified
 
 
